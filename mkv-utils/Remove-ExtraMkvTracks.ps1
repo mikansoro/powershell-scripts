@@ -29,6 +29,9 @@
         default = "true" # or "false"
     }
 .NOTES
+    Requires: mkvmerge.exe, mkvpropedit.exe both on your user or system path.
+    Supports: -Debug
+    
     Author: Michael Rowland
     Date:   2021-04-08
 #>

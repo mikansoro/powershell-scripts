@@ -2,7 +2,8 @@
 .SYNOPSIS
     Reads a folder for subfolders, creates a DFS Folder mount for each one. Creates 2 Domain Local Active Directory Groups for each folder, one for "READ" and one for "MODIFY". Does not set NTFS permissions (yet).
 .NOTES
-    Requires AD Powershell Snap-In installed on the local machine.
+    Requires: ADDS Powershell Snap-In installed, DFS-N Server Role Enabled with Powershell Module and dfsutil.exe accessible
+
     Originally designed to be run from the fileserver hosting DFS
     Still needs to set NTFS permissions on the local folder for proper DFS sharing. 
     Maybe could build folders optionally from a list, inside $LiteralPath ? 
