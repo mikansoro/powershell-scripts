@@ -1,8 +1,36 @@
 <#
 .SYNOPSIS
     Reads a folder for subfolders, creates a DFS Folder mount for each one. Creates 2 Domain Local Active Directory Groups for each folder, one for "READ" and one for "MODIFY". Does not set NTFS permissions (yet).
+.PARAMETER LiteralPath
+    type: String
+    Default: The current running location of the script using Get-Location.
+    The folder that contains the directories to be converted to DFS targets. 
+    Example: $LiteralPath = D:\DFSMounts, any folder at the first level within DFSMounts will become a DFS target
+.PARAMETER DFSRootFolder
+    type: String
+    Default: the NetBIOS Domain Name of the current running user's active directory account. Retrieved from the UserDomain environment variable.
+    The name of the DFS Namespace's Root Folder, for which to create folder targets in. If a valid DFS Namespace cannot be found using this DFS Root Folder name, the script will exit before any changes are committed. 
+    \\$DFSDomain\$DFSRootFolder must exist in the domain already.
+.PARAMETER DFSDomain
+    type: String
+    Default: the fully qualified domain name of the current running user's active directory account. Retrieved from the UserDnsDomain environment variable.
+    The fully qualified domain name of the DFS-N Namespace. If a valid DFS Namespace cannot be found with this DFSDomain, the script will exit before any changes are committed. 
+    \\$DFSDomain\$DFSRootFolder must exist in the domain already.
+.PARAMETER Credential
+    type: PSCredential
+    Default: get-credential
+    Credential for Active Directory. Should have write permissions to create new groups in the OU specified in DLGroupPath
+.PARAMETER DLGroupPath
+    type: String
+    Mandatory
+    A distinguished name for an active directory Organizational Unit where groups should be created if they cannot be found, based on the templates defined in $ADGroupNameTemplates
+.PARAMETER ModifyACL
+    type: Switch
+    Enabling this switch will modify the folder's NTFS ACL to match the groups found/generated and set on the DFS share. 
+    Not setting this switch will leave all NTFS ACL permissions intact and unchanged.
 .NOTES
     Requires: ADDS Powershell Snap-In installed, DFS-N Server Role Enabled with Powershell Module and dfsutil.exe accessible
+    Supports: -Debug, -Verbose
 
     Originally designed to be run from the fileserver hosting DFS
     Still needs to set NTFS permissions on the local folder for proper DFS sharing. 
@@ -70,7 +98,6 @@ foreach ($folder in $Folders) {
     $WMIFolderPath = $folder.FullName -replace '\\','\\'
     $WMIShare = Get-CimInstance -Query "SELECT * FROM Win32_Share WHERE Path='$WMIFolderPath'"
     Write-Debug "WMI Share missing: $((-not ([bool]$WMIShare)))"
-
     if (-not ([bool]$WMIShare)) {
         Write-Verbose "Creating new SMB Share for $($folder.FullName)"
         New-SMBShare -Name $folder.Name -Path $folder.FullName -FullAccess "Everyone"
@@ -80,9 +107,10 @@ foreach ($folder in $Folders) {
         $SMBSharePath = "\\$($env:computername)\$($WMIShare.Name)"
     }
     Write-Debug "SharePath: $SMBSharePath"
+    Write-Host -BackgroundColor Green  "New share created: $SMBSharePath"
 
-    Write-Verbose "Creating DFS Folder: $DFSFolderPath"
     # Create/Register DFS folders
+    Write-Verbose "Creating DFS Folder: $DFSFolderPath"
     New-DfsnFolder -Path $DFSFolderPath -TargetPath $SMBSharePath 
 
     # generate group information from templates for this folder
@@ -103,13 +131,17 @@ foreach ($folder in $Folders) {
         }
 
         # janky fix to wait for New-ADGroup to finish making the group and replicate it
+        $ChecksElapsed = 0
+        Write-Verbose "Waiting for changes to sync."
         Do {
-            If($Idx -gt 0) {Start-sleep -s 5}
-            $r = Get-ADGroup -Identity $group.name
-            Write-Verbose "."
-            $Idx = $Idx + 1
-        } Until($r)
+            If($ChecksElapsed -gt 0) {Start-sleep -s 5}
+            $res = Get-ADGroup -Identity $group.name
+            Write-Host -NoNewline "."
+            $ChecksElapsed++ 
+        } Until($res)
     }
+
+    Write-Host -BackgroundColor Green  "Finished processing Permission Groups for folder: $($folder.name)" 
 
     foreach ($group in $groups) {
         Write-Verbose "Granting DFS Access to folder $DFSFolderPath : $($group.NetbiosName)"
@@ -120,7 +152,10 @@ foreach ($folder in $Folders) {
         # Grant-DfsnAccess -Path $DFSFolderPath -AccountName "$($group.NetbiosName)"
     }
 
+    Write-Host -BackgroundColor Green  "Finished processing DFS Share Permissions for folder $($folder.name)"
+
     if ($ModifyACL) {
         Update-AclRules -groups $groups -folder $folder
+        Write-Host -BackgroundColor Green  "Finished processing folder ACLs for folder $($folder.name)"
     }
 }
