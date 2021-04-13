@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Allows a user to define a subset of video, audio, and subtitle tracks to keep for mkv files that exist with a directory, and remove all others via mkvmerge remuxing. 
-    Users can set options for each track or use existing data. mkv "title" attribute is removed for each file. 
+    Users can set options for each track or use existing data. mkv "title" attribute is removed for each file so plex plays nice. 
 .PARAMETER Folder
     Type: String
     Path where MKV files exist. Required to be an absolute path. 
@@ -32,6 +32,8 @@
     Requires: mkvmerge.exe, mkvpropedit.exe both on your user or system path.
     Supports: -Debug
     
+    Example Usage: .\Remove-ExtraMkvTracks.ps1 -Folder "C:\path\to\media"  -Video 0 -Audio @{id=1;lang="jpn"} -Subtitle @{id=3;lang="eng";name="English";default="true"}
+
     Author: Michael Rowland
     Date:   2021-04-08
 #>
