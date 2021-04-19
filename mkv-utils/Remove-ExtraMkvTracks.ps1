@@ -50,15 +50,16 @@ if (-not (Split-Path -Path $folder -IsAbsolute)) {
     exit
 }
 
-$files = Get-ChildItem -File -Filter "*.mkv" -Path $folder -Depth 0 -Exclude "temp.mkv"
-if ($files.count -lt 1) {
+try {
+    $files = Get-ChildItem -File -Filter "*.mkv" -Path $folder -Recurse -Depth 0 -Exclude "temp.mkv"
+} catch {
     # need to also check -LiteralPath, for some edge case folder names that include a sub release group in brackets, i.e. C:\Downloads\[SUBGroup] show [info]\[SUBGroup] release [info].mkv
     # about half the time, Powershell will think that it is regex without using -LiteralPath
-    $files = Get-ChildItem -File -Filter "*.mkv" -LiteralPath $folder -Depth 0 -Exclude "temp.mkv"
-    if ($files.count -lt 1) {
-        Write-Warning "No MKV files found. Exiting."
-        exit
-    }
+    $files = Get-ChildItem -File -Filter "*.mkv" -LiteralPath $folder -Recurse -Depth 0 -Exclude "temp.mkv"
+}
+if ($files.count -lt 1) {
+    Write-Warning "No MKV files found. Exiting."
+    exit
 }
 
 $folder = Split-Path -Path $files[0].FullName
