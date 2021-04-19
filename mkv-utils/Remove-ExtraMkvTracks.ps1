@@ -28,6 +28,10 @@
         lang = "eng" # should be an iso 3 letter language code, per mkvmerge
         default = "true" # or "false"
     }
+.PARAMETER PreserveTitleMetadata
+    Type: switch
+    Default: false
+    Setting this switch prevents stripping the "title" attribute from the output MKV file using "mkvpropedit --delete title"
 .NOTES
     Requires: mkvmerge.exe, mkvpropedit.exe both on your user or system path.
     Supports: -Debug
@@ -42,7 +46,8 @@ param (
     [string]$Folder,
     [int[]]$Video,
     [object[]]$Audio,
-    [object[]]$Subtitle
+    [object[]]$Subtitle,
+    [switch]$PreserveTitleMetadata = $false
 )
 
 if (-not (Split-Path -Path $folder -IsAbsolute)) {
@@ -114,5 +119,7 @@ foreach ($file in $files) {
     Remove-Item -LiteralPath $file.FullName
     Move-Item -LiteralPath $tempfile -Destination $file.FullName
 
-    & mkvpropedit $file.FullName @propeditparams
+    if (-not $PreserveTitleMetadata) {            
+        & mkvpropedit $file.FullName @propeditparams
+    }
 }
