@@ -4,6 +4,11 @@
 .PARAMETER Folder
     Type: String
     Path where MKV files exist. Required to be an absolute path. 
+.PARAMETER Depth
+    Type: int
+    Default: 0
+    Required: False
+    Depth to be passed on to Get-ChildItem
 .NOTES
     Requires: mkvmerge.exe, mkvpropedit.exe both on your user or system path.
     
@@ -15,11 +20,15 @@
         JSON will still most likely be the default output.
         See this bug on YAML status if that's your thing. https://github.com/PowerShell/PowerShell/issues/3607
 
+    Platform Support: Tested against Windows Powershell (5.1) and Powershell Core 7.1.3. Should work cross-platform, assuming mkvmerge is 
+        accessible on the system path by the interpreter. 
+
     Author: Michael Rowland
     Date:   2021-04-17
 #>
 param (
-    [string]$Folder
+    [string]$Folder,
+    [int]$Depth = 0
 )
 
 # accepts two sets of tracks as psobject[], checks several key metrics to determine if they're indeed equal
@@ -62,11 +71,11 @@ if (-not (Split-Path -Path $folder -IsAbsolute)) {
 }
 
 try {
-    $files = Get-ChildItem -File -Filter "*.mkv" -Path $folder 
+    $files = Get-ChildItem -File -Filter "*.mkv" -Path $folder -Recurse -Depth $Depth
 } catch {
     # need to also check -LiteralPath, for some edge case folder names that include a sub release group in brackets, i.e. C:\Downloads\[SUBGroup] show [info]\[SUBGroup] release [info].mkv
     # about half the time, Powershell will think that it is regex without using -LiteralPath
-    $files = Get-ChildItem -File -Filter "*.mkv" -LiteralPath $folder 
+    $files = Get-ChildItem -File -Filter "*.mkv" -LiteralPath $folder -Recurse -Depth $Depth 
 }
 if ($files.count -lt 1) {
     Write-Warning "No MKV files found. Exiting."
